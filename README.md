@@ -37,6 +37,61 @@ Three main endpoints:
 - Blockchain and event type breakdowns
 - Auto-refresh every 15-30 seconds
 
+## Quick Start
+
+### 1. Setup API Keys
+
+**You need blockchain RPC endpoints to read blockchain data.** See [API_SETUP.md](./API_SETUP.md) for detailed instructions.
+
+**Quick setup with Alchemy (Free):**
+1. Sign up at [alchemy.com](https://www.alchemy.com)
+2. Create apps for Ethereum, Polygon, BSC
+3. Add to Vercel environment variables:
+   - `ETHEREUM_RPC_URL`
+   - `POLYGON_RPC_URL`
+   - `BSC_RPC_URL`
+   - `SOLANA_RPC_URL` (use [Helius](https://helius.dev) or public RPC)
+
+### 2. Database Setup
+Run the SQL migration script:
+\`\`\`bash
+# Execute scripts/001_create_tables.sql through Neon dashboard
+# Or use the v0 script runner
+\`\`\`
+
+### 3. Deploy & Test
+1. Deploy to Vercel (click "Publish" in v0)
+2. Open your dashboard
+3. Click "Scan Now" to manually trigger blockchain scan
+4. Events will appear if whale transfers are detected
+
+### 4. Enable Auto-Scanning (Optional)
+The app includes Vercel Cron configuration to automatically scan every 5 minutes. After deploying, the cron job will run automatically.
+
+## How It Works
+
+### Real-Time Mechanism
+
+The system uses **serverless-compatible polling** instead of long-running listeners:
+
+1. **Manual Trigger**: Click "Scan Now" button to check blockchains immediately
+2. **Cron Jobs**: Vercel Cron automatically scans every 5 minutes (configurable in `vercel.json`)
+3. **Scan Process**: 
+   - Fetches latest blocks from each blockchain
+   - Detects large transfers (>$100k USD)
+   - Normalizes values to USD using CoinGecko
+   - Stores events in PostgreSQL
+   - Triggers notifications if configured
+
+### Why Not WebSockets?
+
+Vercel's serverless environment has execution time limits (10-60 seconds). Long-running WebSocket connections don't work. Instead:
+
+- **Current**: Periodic scans via Cron (5-minute intervals)
+- **For true real-time**: Deploy listeners on Railway/Render and push to this API
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for production deployment strategies.
+
 ## Setup
 
 ### 1. Database Setup
@@ -127,6 +182,11 @@ GET /api/events?blockchain=ethereum&min_usd_value=500000&page=1&limit=20
 GET /api/stats?timeframe=24h
 \`\`\`
 
+### Manual Blockchain Scan
+\`\`\`bash
+POST /api/ingestion/scan
+\`\`\`
+
 ### Subscribe to Notifications
 \`\`\`bash
 POST /api/notifications/subscribe
@@ -139,6 +199,50 @@ Content-Type: application/json
   "event_types": ["whale_transfer", "liquidity_remove"]
 }
 \`\`\`
+
+## Configuration
+
+### Whale Detection Thresholds
+
+Edit thresholds in `lib/config.ts`:
+\`\`\`typescript
+whaleThreshold: 100000,      // $100k USD minimum
+liquidityThreshold: 50000,   // $50k USD minimum
+\`\`\`
+
+Or set via environment variables:
+- `WHALE_THRESHOLD_USD`
+- `LIQUIDITY_THRESHOLD_USD`
+
+### Scan Frequency
+
+Edit `vercel.json` to change cron schedule:
+\`\`\`json
+{
+  "crons": [{
+    "path": "/api/ingestion/scan",
+    "schedule": "*/5 * * * *"  // Every 5 minutes
+  }]
+}
+\`\`\`
+
+## Troubleshooting
+
+### No events appearing?
+1. Check if RPC endpoints are configured (see setup status banner)
+2. Whale threshold is $100k - large transfers are rare
+3. Try lowering threshold in `lib/config.ts`
+4. Check browser console for errors
+
+### "RPC endpoint not responding"?
+1. Verify API keys are correct in Vercel settings
+2. Check if you've exceeded free tier limits
+3. Try using different RPC provider
+
+### Price data unavailable?
+- CoinGecko free tier has rate limits (10-30 calls/min)
+- App caches prices for 5 minutes
+- Consider upgrading to CoinGecko Pro if scanning frequently
 
 ## Development Notes
 

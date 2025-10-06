@@ -1,6 +1,8 @@
 import { StatsOverview } from "@/components/stats-overview"
 import { EventsTable } from "@/components/events-table"
 import { EventFilters } from "@/components/event-filters"
+import { IngestionControls } from "@/components/ingestion-controls"
+import { SetupStatus } from "@/components/setup-status"
 
 export default function DashboardPage() {
   return (
@@ -12,18 +14,16 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-bold tracking-tight">Whale Tracker</h1>
               <p className="text-muted-foreground mt-1">Real-time blockchain whale and liquidity monitoring</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 rounded-lg bg-green-500/10 px-3 py-1.5">
-                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-sm font-medium text-green-600 dark:text-green-400">Live</span>
-              </div>
-            </div>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8">
         <div className="space-y-8">
+          <SetupStatus />
+
+          <IngestionControls />
+
           <StatsOverview />
 
           <div className="space-y-4">

@@ -18,59 +18,53 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("start_date")
     const endDate = searchParams.get("end_date")
 
-    // Build dynamic WHERE clause
-    const conditions: string[] = ["1=1"]
-    const params: any[] = []
+    // Build dynamic WHERE conditions using tagged templates
+    let whereConditions = sql`1=1`
 
     if (blockchain) {
-      conditions.push(`blockchain = $${params.length + 1}`)
-      params.push(blockchain)
+      whereConditions = sql`${whereConditions} AND blockchain = ${blockchain}`
     }
 
     if (eventType) {
-      conditions.push(`event_type = $${params.length + 1}`)
-      params.push(eventType)
+      whereConditions = sql`${whereConditions} AND event_type = ${eventType}`
     }
 
     if (minUsdValue) {
-      conditions.push(`usd_value >= $${params.length + 1}`)
-      params.push(Number.parseFloat(minUsdValue))
+      whereConditions = sql`${whereConditions} AND usd_value >= ${Number.parseFloat(minUsdValue)}`
     }
 
     if (maxUsdValue) {
-      conditions.push(`usd_value <= $${params.length + 1}`)
-      params.push(Number.parseFloat(maxUsdValue))
+      whereConditions = sql`${whereConditions} AND usd_value <= ${Number.parseFloat(maxUsdValue)}`
     }
 
     if (startDate) {
-      conditions.push(`timestamp >= $${params.length + 1}`)
-      params.push(startDate)
+      whereConditions = sql`${whereConditions} AND timestamp >= ${startDate}`
     }
 
     if (endDate) {
-      conditions.push(`timestamp <= $${params.length + 1}`)
-      params.push(endDate)
+      whereConditions = sql`${whereConditions} AND timestamp <= ${endDate}`
     }
 
     // Get total count
-    const countQuery = `SELECT COUNT(*) as count FROM whale_events WHERE ${conditions.join(" AND ")}`
-    const countResult = await sql(countQuery, params)
+    const countResult = await sql`
+      SELECT COUNT(*) as count 
+      FROM whale_events 
+      WHERE ${whereConditions}
+    `
     const totalCount = Number.parseInt(countResult[0].count)
 
     // Get paginated results
-    const dataQuery = `
+    const events = await sql`
       SELECT 
         id, event_type, blockchain, transaction_hash, block_number, timestamp,
         from_address, to_address, contract_address, token_symbol, token_address,
         amount_raw, amount_decimal, usd_value, protocol, metadata,
         notification_sent, created_at
       FROM whale_events 
-      WHERE ${conditions.join(" AND ")}
+      WHERE ${whereConditions}
       ORDER BY timestamp DESC
-      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+      LIMIT ${limit} OFFSET ${offset}
     `
-
-    const events = await sql(dataQuery, [...params, limit, offset])
 
     return NextResponse.json({
       success: true,

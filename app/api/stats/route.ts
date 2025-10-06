@@ -7,20 +7,20 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const timeframe = searchParams.get("timeframe") || "24h" // 24h, 7d, 30d, all
 
-    // Calculate time filter
-    let timeFilter = ""
+    // Calculate time filter using tagged templates
+    let timeCondition
     switch (timeframe) {
       case "24h":
-        timeFilter = "timestamp >= NOW() - INTERVAL '24 hours'"
+        timeCondition = sql`timestamp >= NOW() - INTERVAL '24 hours'`
         break
       case "7d":
-        timeFilter = "timestamp >= NOW() - INTERVAL '7 days'"
+        timeCondition = sql`timestamp >= NOW() - INTERVAL '7 days'`
         break
       case "30d":
-        timeFilter = "timestamp >= NOW() - INTERVAL '30 days'"
+        timeCondition = sql`timestamp >= NOW() - INTERVAL '30 days'`
         break
       default:
-        timeFilter = "1=1"
+        timeCondition = sql`1=1`
     }
 
     // Get overall statistics
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
         MIN(timestamp) as first_event,
         MAX(timestamp) as latest_event
       FROM whale_events
-      WHERE ${sql.unsafe(timeFilter)}
+      WHERE ${timeCondition}
     `
 
     // Get statistics by blockchain
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         SUM(usd_value) as total_volume_usd,
         AVG(usd_value) as avg_transaction_usd
       FROM whale_events
-      WHERE ${sql.unsafe(timeFilter)}
+      WHERE ${timeCondition}
       GROUP BY blockchain
       ORDER BY total_volume_usd DESC
     `
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         SUM(usd_value) as total_volume_usd,
         AVG(usd_value) as avg_transaction_usd
       FROM whale_events
-      WHERE ${sql.unsafe(timeFilter)}
+      WHERE ${timeCondition}
       GROUP BY event_type
       ORDER BY total_volume_usd DESC
     `
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
         COUNT(*) as transaction_count,
         SUM(usd_value) as total_volume_usd
       FROM whale_events
-      WHERE ${sql.unsafe(timeFilter)} AND token_symbol IS NOT NULL
+      WHERE ${timeCondition} AND token_symbol IS NOT NULL
       GROUP BY token_symbol, token_address, blockchain
       ORDER BY total_volume_usd DESC
       LIMIT 10
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
         id, event_type, blockchain, transaction_hash, 
         token_symbol, usd_value, timestamp
       FROM whale_events
-      WHERE ${sql.unsafe(timeFilter)}
+      WHERE ${timeCondition}
       ORDER BY usd_value DESC
       LIMIT 10
     `
